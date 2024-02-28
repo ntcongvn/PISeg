@@ -41,19 +41,26 @@ cd ./piseg/piseg/modeling/pixel_decoder/ops
 ##  Polyp instance segmentation dataset
 [Kvasir-SEG](<https://datasets.simula.no/kvasir-seg/>) is the most commonly used benchmark of polyps segmentation captured from real-world environments. However, the dataset and others only provide binary semantic masks labeling image regions as polyp or non-polyp. In this work, we take further steps to propose an annotated dataset for pedunculated and sessile polyp instance segmentation. Specifically, we leverage 1,000 polyp images from the Kvasir-SEG dataset, separate the provided polyp semantics into distinguished instances of the two classes, and annotate its masks. 
 
-
+1. Download the Kvasir-SEG dataset (kvasir-seg.zip) from https://datasets.simula.no/kvasir-seg/ and unzip the image and image-mask folder into the datasets/images/ folder
+2. The data annotation for polyp instance segmentation can be found at ./datasets/ folder
 
 ##  Usage
 
 ####  1. Training
 
-
-
+```bash
+!python "./piseg/train_net.py" --config-file "$config-file" --num-gpus 1 --resume DATASETS.TRAIN '("kvasir_instance_train",)' DATASETS.TEST '("kvasir_instance_val",)' DATALOADER.NUM_WORKERS 12 SOLVER.IMS_PER_BATCH 10 SOLVER.BASE_LR 0.0001 SOLVER.MAX_ITER 7700 SOLVER.STEPS "(5600,7000)" SOLVER.CHECKPOINT_PERIOD 70 TEST.EVAL_PERIOD 70 OUTPUT_DIR "$output_dir"
+```
+* $config-file: the path to the config file, polyp instance segmentation(./piseg/configs/polyp/instance-segmentation/piseg_R50_bs16_50ep.yaml).
+* $output_dir: specify the path to save the checkpoint during the training process.
 
 ####  2. Inference
 
-
-
+```bash
+!python "./piseg/train_net.py" --config-file "./piseg/configs/polyp/instance-segmentation/piseg_R50_bs16_50ep.yaml" --num-gpus 1 --eval-only  DATASETS.TEST '("fold_0_kvasir_instance_test",)'  SOLVER.IMS_PER_BATCH 1 MODEL.WEIGHTS "./output_piseg_resnet50/model_0007069.pth" OUTPUT_DIR "./output_piseg_resnet50/"
+```
+* $config-file: the path to the config file, polyp instance segmentation(./piseg/configs/polyp/instance-segmentation/piseg_R50_bs16_50ep.yaml).
+* $output_dir: specify the path to save the results during the evaluating process.
 
 ##  Acknowledgement
 
