@@ -41,7 +41,7 @@ cd ./piseg/piseg/modeling/pixel_decoder/ops
 ##  Polyp instance segmentation dataset
 [Kvasir-SEG](<https://datasets.simula.no/kvasir-seg/>) is the most commonly used benchmark of polyps segmentation captured from real-world environments. However, the dataset and others only provide binary semantic masks labeling image regions as polyp or non-polyp. In this work, we take further steps to propose an annotated dataset for pedunculated and sessile polyp instance segmentation. Specifically, we leverage 1,000 polyp images from the Kvasir-SEG dataset, separate the provided polyp semantics into distinguished instances of the two classes, and annotate its masks. 
 
-1. Download the Kvasir-SEG dataset (kvasir-seg.zip) from https://datasets.simula.no/kvasir-seg/ and unzip the image and image-mask folder into the datasets/images/ folder
+1. Download the Kvasir-SEG dataset from https://datasets.simula.no/kvasir-seg/ and unzip the image and image-mask folder into the datasets/images/ folder
 2. The data annotation for polyp instance segmentation can be found at ./datasets/ folder
 
 ##  Usage
