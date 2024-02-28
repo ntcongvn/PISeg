@@ -6,7 +6,7 @@ PISeg: Polyp Instance Segmentation With Texture Denoising And Adaptive Region
 This repository contains the PyTorch implementation of PISeg, Polyp Instance Segmentation With Texture Denoising And Adaptive Region. 
 Our proposed PISeg has three modules: a Backbone, a Pixel Decoder, and a Transformer Decoder, as shown in the figure below. First, the backbone handles feature extraction of the input endoscopic image. Besides, the texture image is also extracted by a Texture extractor and used to reduce texture noise in the image feature. Next, the Pixel Decoder upsamples image features into high-resolution features, which are then used by the Transformer Decoder module (TDM) to query polyp instances. A set of Adaptive region queries is responsible for detecting regions containing polyp signs from received feature maps. These region queries are learned through Transformer decoder layers (TDL) and are guaranteed to be independent of each other by a Region loss function. Besides, a set of object queries will be synthesized based on adaptive regions to generate object embeddings for classifying and segmenting polyps.
 
-![model](figures/model.png)
+![model](figures/PISEG_Overview.jpg)
 
 ##  Install dependencies
 
@@ -14,21 +14,32 @@ Dependent libraries
 * torch
 * torchvision 
 * opencv
-* tqdm
-* tb-nightly
-* pynrrd
-* SimpleITK
-* pydicom
+* ninja
+* fvcore
+* iopath
 
-Install a custom module for bounding box NMS and overlap calculation.
+Install detectron2 and PISeg.
 
 ```bask
-cd scripts/build/box
-python setup.py install
+# Under your working directory
+# Install Detectron2
+cd ./detectron2
+!python setup.py build develop
+cd ..
+
+#Install requirements for piseg
+cd ./piseg
+!pip install -r requirements.txt
+cd ..
+
+cd ./piseg/piseg/modeling/pixel_decoder/ops
+!sh make.sh
+
+
 ```
 
-##  Lung nodule dataset
-The dataset that has nodule segmentation is the public LIDC dataset. More common dataset would be the ones like LUNA16 that only has nodule locations. First, we need to preprocess the dicom images. The preprocessing includes: segmenting lung regions from the CT image, resampling the image into 1x1x1 mm spacing and converting world coordinates to voxel coordinates. All the results will be saved as .npy files. Then, you will need to specify which samples to be used for training, validing and testing. This can be done by generating a csv files containing patient ids for each phase and specify their paths in the scripts/config.py 
+##  Polyp instance segmentation dataset
+[Kvasir-SEG](<https://datasets.simula.no/kvasir-seg/>) is the most commonly used benchmark of polyps segmentation captured from real-world environments. However, the dataset and others only provide binary semantic masks labeling image regions as polyp or non-polyp. In this work, we take further steps to propose an annotated dataset for pedunculated and sessile polyp instance segmentation. Specifically, we leverage 1,000 polyp images from the Kvasir-SEG dataset, separate the provided polyp semantics into distinguished instances of the two classes, and annotate its masks. 
 
 we hereby walk you through the configuration to generate the preprocessed data for training and evaluation. 
 1. Download the LIDC-IDRI Radiologist Annotations/Segmentations (XML format) from https://wiki.cancerimagingarchive.net/download/attachments/1966254/LIDC-XML-only.zip?version=1&modificationDate=1530215018015&api=v2 and change the scripts/config.py line 24 'annos_dir' to your downloaded path
@@ -39,17 +50,8 @@ we hereby walk you through the configuration to generate the preprocessed data f
 
     Explanantions on some intermediate results saved: ctr_arr_save_dir will be the place to save the parsed intermediate nodule masks for each annotator, and mask_save_dir is the folder to save the merged nodule mask. In mask_save_dir, there will be 1 - 4 four folders, containing nodule masks that are annotated by at least 1 - 4 annotators respectively.
 
-3. Then run 
-```
-cd scripts/utils/LIDC
-python cvrt_annos_to_npy.py
-```
+3. XXX
 
-4. Finally, we will resample the CT image to 1x1x1, as well as the nodule masks. All our training and evaluations are based on the resampled images. Go to scripts/utils/LIDC/preprocess.py, change lung_mask_dir to the lung segmentation mask you downloaded from step 2, nod_mask_dir to the mask_save_dir you specified in the previous step. Change save_dir to the place you want to save the preprocessed data. Then run
-```
-cd scripts/utils/LIDC
-python preprocess.py
-```
 
 ##  Usage
 
