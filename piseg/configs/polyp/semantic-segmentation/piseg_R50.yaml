@@ -1,0 +1,58 @@
+_BASE_: Base-POLYP-SemanticSegmentation.yaml
+MODEL:
+  META_ARCHITECTURE: "MaskFormer"
+  SEM_SEG_HEAD:
+    NAME: "MaskFormerHead"
+    IGNORE_VALUE: 255
+    NUM_CLASSES: 1 #80
+    LOSS_WEIGHT: 1.0
+    CONVS_DIM: 256
+    MASK_DIM: 256
+    NORM: "GN"
+    # pixel decoder
+    PIXEL_DECODER_NAME: "MSDeformAttnPixelDecoder"
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+    DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES: ["res3", "res4", "res5"]
+    COMMON_STRIDE: 4
+    TRANSFORMER_ENC_LAYERS: 6
+  MASK_FORMER:
+    TRANSFORMER_DECODER_NAME: "MaskedVocabularyTransformerDecoder"  #"MultiScaleMaskedTransformerDecoder" - Mask2former and "MaskedVocabularyTransformerDecoder - Adaptive Vocabulary in PISEG
+    TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
+    DEEP_SUPERVISION: True
+    NO_OBJECT_WEIGHT: 0.1
+    CLASS_WEIGHT: 2.0
+    MASK_WEIGHT: 5.0
+    DICE_WEIGHT: 5.0
+    HIDDEN_DIM: 256
+    NUM_OBJECT_QUERIES: 100
+    NHEADS: 8
+    DROPOUT: 0.0
+    DIM_FEEDFORWARD: 2048
+    ENC_LAYERS: 0
+    PRE_NORM: False
+    ENFORCE_INPUT_PROJ: False
+    SIZE_DIVISIBILITY: 32
+    DEC_LAYERS: 10  # 9 decoder layers, add one for the loss on learnable query
+    TRAIN_NUM_POINTS: 12544
+    OVERSAMPLE_RATIO: 3.0
+    IMPORTANCE_SAMPLE_RATIO: 0.75
+    TEST:
+      SEMANTIC_ON: True
+      INSTANCE_ON: False
+      PANOPTIC_ON: False
+      OVERLAP_THRESHOLD: 0.8
+      OBJECT_MASK_THRESHOLD: 0.8
+    TEXTURE_EXTRACTOR_ENABLE: True                         #Enable denoise texture for PISEG
+    ADAPTIVE_VOCABULARY_ENABLE: True                        #Always True if TRANSFORMER_DECODER_NAME = "MaskedVocabularyTransformerDecoder" else False 
+  TEXTURE_EXTRACTOR:
+    OUT_FEATURES: ["t_res2", "t_res3", "t_res4", "t_res5"] # avaiable list is ["t_res2", "t_res3", "t_res4", "t_res5"]
+    OUT_CHANNEL: 256
+    TEXTURE_FILTER_PAIRS: [{"res3":"t_res3","res4":"t_res4","res5":"t_res5"}] # [{"res3":"t_res5","res4":"t_res5","res5":"t_res5"}]    # Use last stage to filter texture #  memory issue "res2":"t_res5",
+    CENTERCROP_SIZE: None   #None - Crop min size of image edges
+    SIZE_DIVISIBILITY: 16
+  ADAPTIVE_VOCABULARY:
+    MASKED_VOCABULARIES: False
+    NUM_VOCABULARIES: 80
+    NUM_OBJECT_QUERIES: 20
+    #LAMBD: 0.0051
+    VOC_WEIGHT: 1.0
