@@ -1,10 +1,10 @@
 # PISeg
-PISEG: POLYP INSTANCE SEGMENTATION WITH TEXTURE DENOISING AND ADAPTIVE REGION
+PISeg: Polyp Instance Segmentation With Texture Denoising And Adaptive Region
 
 ##  Introduction
 
-This repository contains the PyTorch implementation of MANet, Multi-branch attention auxiliary learning for lung nodule detection and segmentation. 
-As shown in the figure below, our UNet-based network architecture consists of 4 layers with two main branches, namely Encoder and Decoder. The output of each D-Block combined with the downsampling ground truth of the corresponding size is used for training to generate a semantic mask. This application helps the UNet architecture to represent better features that are suitable for various sizes of lung nodules at each layer. Besides, the processed features of E-Blocks are also fed in a number of modules, such as the Projected Module (PM), Fast Cascading Context Module (FCM), and Boundary Enhancement Module (BEM), with the role to exploit high-frequency information and to integrate contextual information. These modules help enhance the ability to represent the features of the object to be recognized. The three modules' and the Decoder branch's outputs are then aggregated at the Synthesis Module (SM) block.
+This repository contains the PyTorch implementation of PISeg, Polyp Instance Segmentation With Texture Denoising And Adaptive Region. 
+Our proposed PISeg has three modules: a Backbone, a Pixel Decoder, and a Transformer Decoder, as shown in the figure below. First, the backbone handles feature extraction of the input endoscopic image. Besides, the texture image is also extracted by a Texture extractor and used to reduce texture noise in the image feature. Next, the Pixel Decoder upsamples image features into high-resolution features, which are then used by the Transformer Decoder module (TDM) to query polyp instances. A set of Adaptive region queries is responsible for detecting regions containing polyp signs from received feature maps. These region queries are learned through Transformer decoder layers (TDL) and are guaranteed to be independent of each other by a Region loss function. Besides, a set of object queries will be synthesized based on adaptive regions to generate object embeddings for classifying and segmenting polyps.
 
 ![model](figures/model.png)
 
