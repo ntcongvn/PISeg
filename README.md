@@ -78,19 +78,18 @@ You will see the results of FROC analysis both saved to files and printed on the
 
 ##  Acknowledgement
 
-Part of the code was adpated from [NoduleNet: Decoupled False Positive Reduction for Pulmonary Nodule Detection and Segmentation](<https://github.com/uci-cbcl/NoduleNet>)
+Part of the code was adpated from [Mask2Former: Masked-attention Mask Transformer for Universal Image Segmentation](<https://github.com/facebookresearch/Mask2Former>)
 
 ```bash
-@INPROCEEDINGS{10.1007/978-3-030-32226-7_30,
-    author="Tang, Hao and Zhang, Chupeng and Xie, Xiaohui",
-    editor="Shen, Dinggang and Liu, Tianming and Peters, Terry M. and Staib, Lawrence H. and Essert, Caroline and Zhou, Sean and Yap, Pew-Thian and Khan, Ali",
-    title="NoduleNet: Decoupled False Positive Reduction for Pulmonary Nodule Detection and Segmentation",
-    booktitle="Medical Image Computing and Computer Assisted Intervention -- MICCAI 2019",
-    year="2019",
-    publisher="Springer International Publishing",
-    address="Cham",
-    pages="266--274",
-    isbn="978-3-030-32226-7",
-    doi="https://doi.org/10.1007/978-3-030-32226-7_30",
+@INPROCEEDINGS{9878483,
+  author={Cheng, Bowen and Misra, Ishan and Schwing, Alexander G. and Kirillov, Alexander and Girdhar, Rohit},
+  booktitle={2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, 
+  title={Masked-attention Mask Transformer for Universal Image Segmentation}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={1280-1289},
+  keywords={Image segmentation;Shape;Computational modeling;Semantics;Computer architecture;Transformers;Feature extraction;Segmentation;grouping and shape analysis; Recognition: detection;categorization;retrieval},
+  doi={10.1109/CVPR52688.2022.00135}
 }
 ```
