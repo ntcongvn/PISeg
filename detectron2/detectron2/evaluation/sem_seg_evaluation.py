@@ -1,3 +1,8 @@
+from PIL import Image
+import numpy as np
+import time
+import copy
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 import itertools
 import json
@@ -9,13 +14,13 @@ from typing import Optional, Union
 import pycocotools.mask as mask_util
 import torch
 from PIL import Image
-
 import copy
+
 from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.utils.comm import all_gather, is_main_process, synchronize
 from detectron2.utils.file_io import PathManager
 
-from .evaluator import DatasetEvaluator
+from detectron2.evaluation import DatasetEvaluator
 
 _CV2_IMPORTED = True
 try:
@@ -33,6 +38,58 @@ def load_image_into_numpy_array(
     with PathManager.open(filename, "rb") as f:
         array = np.array(Image.open(f), copy=copy, dtype=dtype)
     return array
+
+def evaluate_single(pred, gt):
+
+    pred_binary = (pred >= 0.5).float()
+    pred_binary_inverse = (pred_binary == 0).float()
+
+    gt_binary = (gt >= 0.5).float()
+    gt_binary_inverse = (gt_binary == 0).float()
+
+    TP = pred_binary.mul(gt_binary).sum()
+    FP = pred_binary.mul(gt_binary_inverse).sum()
+    TN = pred_binary_inverse.mul(gt_binary_inverse).sum()
+    FN = pred_binary_inverse.mul(gt_binary).sum()
+
+    if TP.item() == 0:
+        # print('TP=0 now!')
+        # print('Epoch: {}'.format(epoch))
+        # print('i_batch: {}'.format(i_batch))
+        TP = torch.Tensor([1]).cuda()
+
+    # recall
+    Recall = TP / (TP + FN)
+
+    # Specificity or true negative rate
+    Specificity = TN / (TN + FP)
+
+    # Precision or positive predictive value
+    Precision = TP / (TP + FP)
+
+    # F1 score = Dice
+    F1 = 2 * Precision * Recall / (Precision + Recall)
+
+    # F2 score
+    F2 = 5 * Precision * Recall / (4 * Precision + Recall)
+
+    # Overall accuracy
+    ACC_overall = (TP + TN) / (TP + FP + FN + TN)
+
+    # IoU for poly
+    IoU_poly = TP / (TP + FP + FN)
+
+    # IoU for background
+    IoU_bg = TN / (TN + FP + FN)
+
+    # mean IoU
+    IoU_mean = (IoU_poly + IoU_bg) / 2.0
+
+    return Recall, Specificity, Precision, F1, F2, ACC_overall, IoU_poly, IoU_bg, IoU_mean
+
+def Average(lst):
+    return sum(lst) / len(lst)
+
 
 
 class SemSegEvaluator(DatasetEvaluator):
@@ -117,6 +174,7 @@ class SemSegEvaluator(DatasetEvaluator):
             (self._num_classes + 1, self._num_classes + 1), dtype=np.int64
         )
         self._predictions = []
+        self._bin_predictions = []
 
     def process(self, inputs, outputs):
         """
@@ -128,54 +186,41 @@ class SemSegEvaluator(DatasetEvaluator):
                 (Tensor [H, W]) or list of dicts with key "sem_seg" that contains semantic
                 segmentation prediction in the same format.
         """
-        #print(len(inputs))
-        #print(len(outputs))
         for input, output in zip(inputs, outputs):
+            output = output["sem_seg"].to(self._cpu_device)
+
+            output=(output >= 0.5).int()
             
-            #Uncomment if train
-            #"""
-            img_pd=copy.deepcopy(output["sem_seg"])
-            img_pd[img_pd>=0.5]=1
-            img_pd[img_pd<0.5]=0
-            img_pd=img_pd.cpu().numpy().astype('float')
-            ###np.save('./output_mask2former_resnet50/semantic_output/'+self.input_file_to_gt_file[input["file_name"]].split("/")[-1][:-4]+'_pd.npy',img_pd)    
-            np.save('./output_pisegVoc80_resnet50/semantic_output/'+self.input_file_to_gt_file[input["file_name"]].split("/")[-2]+"_"+self.input_file_to_gt_file[input["file_name"]].split("/")[-1][:-4]+'_pd.npy',img_pd)    
-            #"""
-
-
-            output = output["sem_seg"].argmax(dim=0).to(self._cpu_device)
-            pred = np.array(output, dtype=np.int)
+            pred_bin=copy.deepcopy(output.squeeze().numpy()).astype(float)
+            
+            output=output-1
+            output[output==-1]=255
+            pred = np.array(output[0], dtype=int)        #predict 0: polyp, 255: _ignore_label
+            
+            
             gt_filename = self.input_file_to_gt_file[input["file_name"]]
-            gt = self.sem_seg_loading_fn(gt_filename, dtype=np.int)
+            gt = self.sem_seg_loading_fn(gt_filename, dtype=int)
             gt = gt.mean(axis=2)
-
-
-            #Uncomment if train
-            #"""
-            img_gt=copy.deepcopy(gt)
-            img_gt[img_gt<128]=0
-            img_gt[img_gt>=128]=1
-            img_gt=img_gt[np.newaxis, :].astype('float')
-            ###np.save('./output_mask2former_resnet50/semantic_output/'+self.input_file_to_gt_file[input["file_name"]].split("/")[-1][:-4]+'_gt.npy',img_gt)    
-            np.save('./output_pisegVoc80_resnet50/semantic_output/'+self.input_file_to_gt_file[input["file_name"]].split("/")[-2]+"_"+self.input_file_to_gt_file[input["file_name"]].split("/")[-1][:-4]+'_gt.npy',img_gt)
-            #"""
-            
-            gt[gt>=128]=1
             gt[gt<128]=0
-            gt=gt-1
-            gt[gt==-1]=255          #255 will be inorge
-            gt=gt.astype('int64')
+            gt[gt>=128]=1
             
+            gt_bin=copy.deepcopy(gt).astype(float)
+            
+            gt=gt-1
+            gt[gt==-1]=255
+            gt = np.array(gt, dtype=int)        #predict 0: polyp, 255: _ignore_label
+
+            
+            pred[pred == self._ignore_label] = self._num_classes
             gt[gt == self._ignore_label] = self._num_classes
 
-            #print(pred.min(),pred.max())
-            #print(gt.min(),gt.max())
-
+            
             self._conf_matrix += np.bincount(
                 (self._num_classes + 1) * pred.reshape(-1) + gt.reshape(-1),
                 minlength=self._conf_matrix.size,
             ).reshape(self._conf_matrix.shape)
 
+            #print(self._conf_matrix)
             if self._compute_boundary_iou:
                 b_gt = self._mask_to_boundary(gt.astype(np.uint8))
                 b_pred = self._mask_to_boundary(pred.astype(np.uint8))
@@ -186,6 +231,7 @@ class SemSegEvaluator(DatasetEvaluator):
                 ).reshape(self._conf_matrix.shape)
 
             self._predictions.extend(self.encode_json_sem_seg(pred, input["file_name"]))
+            self._bin_predictions.append({"pred":pred_bin,"gt":gt_bin})
 
     def evaluate(self):
         """
@@ -202,6 +248,10 @@ class SemSegEvaluator(DatasetEvaluator):
             b_conf_matrix_list = all_gather(self._b_conf_matrix)
             self._predictions = all_gather(self._predictions)
             self._predictions = list(itertools.chain(*self._predictions))
+
+            self._bin_predictions = all_gather(self._bin_predictions)
+            self._bin_predictions = list(itertools.chain(*self._bin_predictions))
+
             if not is_main_process():
                 return
 
@@ -219,12 +269,12 @@ class SemSegEvaluator(DatasetEvaluator):
             with PathManager.open(file_path, "w") as f:
                 f.write(json.dumps(self._predictions))
 
-        acc = np.full(self._num_classes, np.nan, dtype=np.float)
-        iou = np.full(self._num_classes, np.nan, dtype=np.float)
-        tp = self._conf_matrix.diagonal()[:-1].astype(np.float)
-        pos_gt = np.sum(self._conf_matrix[:-1, :-1], axis=0).astype(np.float)
+        acc = np.full(self._num_classes+1, np.nan, dtype=float)
+        iou = np.full(self._num_classes+1, np.nan, dtype=float)
+        tp = self._conf_matrix.diagonal().astype(float)
+        pos_gt = np.sum(self._conf_matrix, axis=0).astype(float)
         class_weights = pos_gt / np.sum(pos_gt)
-        pos_pred = np.sum(self._conf_matrix[:-1, :-1], axis=1).astype(np.float)
+        pos_pred = np.sum(self._conf_matrix, axis=1).astype(float)
         acc_valid = pos_gt > 0
         acc[acc_valid] = tp[acc_valid] / pos_gt[acc_valid]
         union = pos_gt + pos_pred - tp
@@ -236,10 +286,10 @@ class SemSegEvaluator(DatasetEvaluator):
         pacc = np.sum(tp) / np.sum(pos_gt)
 
         if self._compute_boundary_iou:
-            b_iou = np.full(self._num_classes, np.nan, dtype=np.float)
-            b_tp = self._b_conf_matrix.diagonal()[:-1].astype(np.float)
-            b_pos_gt = np.sum(self._b_conf_matrix[:-1, :-1], axis=0).astype(np.float)
-            b_pos_pred = np.sum(self._b_conf_matrix[:-1, :-1], axis=1).astype(np.float)
+            b_iou = np.full(self._num_classes+1, np.nan, dtype=float)
+            b_tp = self._b_conf_matrix.diagonal().astype(float)
+            b_pos_gt = np.sum(self._b_conf_matrix, axis=0).astype(float)
+            b_pos_pred = np.sum(self._b_conf_matrix, axis=1).astype(float)
             b_union = b_pos_gt + b_pos_pred - b_tp
             b_iou_valid = b_union > 0
             b_iou[b_iou_valid] = b_tp[b_iou_valid] / b_union[b_iou_valid]
@@ -263,7 +313,42 @@ class SemSegEvaluator(DatasetEvaluator):
                 torch.save(res, f)
         results = OrderedDict({"sem_seg": res})
         self._logger.info(results)
-        
+
+        #### Polyp Segmentation Evaluation
+        Recall_list=[]
+        Specificity_list=[]
+        Precision_list=[]
+        F1_list=[]
+        F2_list=[]
+        ACC_overall_list=[]
+        IoU_poly_list=[]
+        IoU_bg_list=[]
+        IoU_mean_list=[]
+        print(f"Binary segmentation:{len(self._bin_predictions)} images")
+        for img in self._bin_predictions:
+          pd = img["pred"]
+          gt = img["gt"]
+          Recall, Specificity, Precision, F1, F2, ACC_overall, IoU_poly, IoU_bg, IoU_mean=evaluate_single(torch.from_numpy(pd),torch.from_numpy(gt))
+          Recall_list.append(Recall)
+          Specificity_list.append(Specificity)
+          Precision_list.append(Precision)
+          F1_list.append(F1)
+          F2_list.append(F2)
+          ACC_overall_list.append(ACC_overall)
+          IoU_poly_list.append(IoU_poly)
+          IoU_bg_list.append(IoU_bg)
+          IoU_mean_list.append(IoU_mean)
+        print("Recall:",Average(Recall_list))
+        print("Specificity:",Average(Specificity_list))
+        print("Precision:",Average(Precision_list))
+        print("F1:",Average(F1_list))
+        print("F2:",Average(F2_list))
+        print("ACC_overall:",Average(ACC_overall_list))
+        print("IoU_poly:",Average(IoU_poly_list))
+        print("IoU_bg:",Average(IoU_bg_list))
+        print("IoU_mean:",Average(IoU_mean_list))
+
+
         return results
 
     def encode_json_sem_seg(self, sem_seg, input_file_name):
@@ -273,6 +358,8 @@ class SemSegEvaluator(DatasetEvaluator):
         """
         json_list = []
         for label in np.unique(sem_seg):
+            if label==1:
+              continue
             if self._contiguous_id_to_dataset_id is not None:
                 assert (
                     label in self._contiguous_id_to_dataset_id
